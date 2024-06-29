@@ -4,6 +4,9 @@
 #include <chrono>
 #include "my_header.h"
 #include <fstream>
+#include <fstream>
+#include <sstream>
+
 
 // Global pointer to the main frame
 wxFrame* g_mainFrame = nullptr;
@@ -39,7 +42,7 @@ private:
     int bulletStartX;
     int bulletEndX;
     int elapsedMilliseconds;
-    int cellValue;
+    int rowIndex;
 
     void OnPaint(wxPaintEvent& event);
 };
@@ -48,8 +51,8 @@ enum
 {
     ID_Run = 1,
     ID_Timer = 2,
-    ID_Save = 3,
-    ID_Open = 4
+    ID_Open = 3,
+    ID_Save = 4
 };
 
 wxIMPLEMENT_APP(MyApp);
@@ -95,20 +98,11 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 
     // Create the grid for displaying float values
     grid = new wxGrid(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-    grid->CreateGrid(1, 10);  // Create a grid with 1 row and 10 columns
+    grid->CreateGrid(0, 10);  // Create a grid with 1 row and 10 columns
     grid->HideRowLabels();    // Hide row labels
     // Set column labels
     for (int i = 0; i < 10; ++i) {
         grid->SetColLabelValue(i, wxString::Format("x%d", i + 1));
-    }
-
-    float values[] = {101.53, 100.87, 98.97, 99.95, 101.50, 102.01, 97.37, 100.01, 99.56, 101.33};
-    
-    cellValue = 0;
-    
-    // Update the grid with the float values
-    for (int i = 0; i < 10; ++i) {
-        grid->SetCellValue(0, i, wxString::Format("%.2f", values[i]));
     }
 
     panel->Bind(wxEVT_PAINT, &MyFrame::OnPaint, this);
@@ -119,10 +113,8 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     speedLabel = new wxStaticText(panel, wxID_ANY, "Speed:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     speedText = new wxTextCtrl(panel, wxID_ANY, "10 m/s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
 
-    // Set sizers to layout the grid and the panel properly
+    // Set sizers to layout the panel properly
     wxBoxSizer* panelSizer = new wxBoxSizer(wxVERTICAL);
-    panelSizer->Add(grid, 0, wxALL | wxEXPAND, 10);
-    panelSizer->AddSpacer(30); // Add space for the bullet below the grid
 
     // Create a horizontal box sizer for time labels
     wxBoxSizer* timeSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -133,7 +125,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     panelSizer->Add(speedLabel, 0, wxALL, 10); // Add speed label
     panelSizer->Add(speedText, 0, wxALL, 10);
 
-    panel->SetSizerAndFit(panelSizer);
+    // Add space for the bullet below the other panels
+    panelSizer->AddSpacer(30); 
+
+    // Add the grid at the bottom and make it expand
+    panelSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
+
+    panel->SetSizer(panelSizer);
 
     // Adjust frame size to fit the panel and grid
     wxBoxSizer* frameSizer = new wxBoxSizer(wxVERTICAL);
@@ -143,6 +141,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     // Initialize timer
     timer = new wxTimer(this, ID_Timer);
     Bind(wxEVT_TIMER, &MyFrame::OnTimer, this, ID_Timer);
+    rowIndex = 0;
 }
 
 void MyFrame::OnRun(wxCommandEvent& event)
@@ -157,9 +156,13 @@ void MyFrame::OnRun(wxCommandEvent& event)
     // Print to the terminal instead of showing a message box
     std::cout << "Execution time: " << duration.count() << " seconds" << std::endl;
 
-    for(int i = 0; i < 10; i++){
-        grid->SetCellValue(0, i, "");
-    }
+    // Add a new row to the grid
+    int newRow = grid->GetNumberRows();
+    grid->AppendRows(1);
+
+    // Adjust the panel and window size to fit the new row
+    panel->Layout();
+    this->Fit();
 
     elapsedMilliseconds = 0;
     bulletX = 10; // Reset bullet position
@@ -183,32 +186,6 @@ void MyFrame::OnAbout(wxCommandEvent& event)
     wxMessageBox("This is a wxWidgets example with timing and grid", "About Timing Example", wxOK | wxICON_INFORMATION);
 }
 
-void MyFrame::OnSave(wxCommandEvent& event)
-{
-    wxFileDialog saveFileDialog(this, _("Save CSV file"), "", "",
-                                "CSV files (*.csv)|*.csv", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-
-    if (saveFileDialog.ShowModal() == wxID_CANCEL)
-        return;
-
-    std::ofstream file;
-    file.open(saveFileDialog.GetPath().ToStdString());
-
-    for (int i = 0; i < 10; ++i) {
-        file << grid->GetColLabelValue(i).ToStdString();
-        if (i < 9) file << ",";
-    }
-    file << "\n";
-
-    for (int i = 0; i < 10; ++i) {
-        file << grid->GetCellValue(0, i).ToStdString();
-        if (i < 9) file << ",";
-    }
-    file << "\n";
-
-    file.close();
-}
-
 void MyFrame::OnOpen(wxCommandEvent& event)
 {
     wxFileDialog openFileDialog(this, _("Open CSV file"), "", "",
@@ -224,6 +201,56 @@ void MyFrame::OnOpen(wxCommandEvent& event)
     if (std::getline(file, line)) {
         // Skip the header line
     }
+
+    grid->ClearGrid();
+
+    int row = 0;
+    while (std::getline(file, line)) {
+        if (grid->GetNumberRows() <= row) {
+            grid->AppendRows(1);
+        }
+        std::istringstream ss(line);
+        std::string cell;
+        int col = 0;
+        while (std::getline(ss, cell, ',') && col < 10) {
+            grid->SetCellValue(row, col, cell);
+            ++col;
+        }
+        ++row;
+    }
+
+    file.close();
+}
+
+void MyFrame::OnSave(wxCommandEvent& event)
+{
+    wxFileDialog saveFileDialog(this, _("Save CSV file"), "", "",
+                                "CSV files (*.csv)|*.csv", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+
+    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+        return;
+
+    std::ofstream file;
+    file.open(saveFileDialog.GetPath().ToStdString());
+
+    // Write column headers
+    for (int i = 0; i < 10; ++i) {
+        file << grid->GetColLabelValue(i).ToStdString();
+        if (i < 9) file << ",";
+    }
+    file << "\n";
+
+    // Write all rows of cell values
+    int numRows = grid->GetNumberRows();
+    for (int row = 0; row < numRows; ++row) {
+        for (int col = 0; col < 10; ++col) {
+            file << grid->GetCellValue(row, col).ToStdString();
+            if (col < 9) file << ",";
+        }
+        file << "\n";
+    }
+
+    file.close();
 }
 
 void MyFrame::OnPaint(wxPaintEvent& event)
@@ -236,14 +263,15 @@ void MyFrame::OnPaint(wxPaintEvent& event)
 
     // Draw a bullet at the current position
     int bulletRadius = 5;
-    int bulletY = gridBottom + 20; // Adjust this value as needed
+    int bulletY = 20; // Adjust this value as needed
 
     dc.SetBrush(*wxBLACK_BRUSH);
     dc.SetPen(*wxBLACK_PEN);
     dc.DrawCircle(bulletX, bulletY, bulletRadius);
     
     // Draw x-coordinate line under the bullet
-    int lineY = gridBottom + 20 + bulletRadius + 1;
+    //int lineY = gridBottom + 20 + bulletRadius + 1;
+    int lineY = 20 + bulletRadius + 1;
     dc.DrawLine(bulletStartX, lineY, bulletEndX, lineY);
     dc.DrawLine(bulletStartX, lineY - 2, bulletStartX, lineY + 2);
     dc.DrawLine(bulletEndX, lineY - 2, bulletEndX, lineY + 2);
@@ -254,26 +282,27 @@ void MyFrame::OnPaint(wxPaintEvent& event)
 void MyFrame::OnTimer(wxTimerEvent& event)
 {
     elapsedMilliseconds += 33;
-    int elapsedSeconds = elapsedMilliseconds / 1000;
-
-    if (elapsedSeconds >= 10)
-    {
-        timer->Stop();
-        return;
-    }
+    int elapsedSeconds = (elapsedMilliseconds / 1000);
 
     // Update grid values
-    if (elapsedSeconds > 0 && grid->GetCellValue(0, elapsedSeconds - 1).IsEmpty())
+    if (elapsedSeconds > 0 && grid->GetCellValue(rowIndex, elapsedSeconds - 1).IsEmpty())
     {
         float min = 10 * elapsedSeconds * 0.97f;
         float max = 10 * elapsedSeconds * 1.03f;
         float randomF = min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
-        grid->SetCellValue(0, elapsedSeconds - 1, wxString::Format("%.2f", randomF));
-        cellValue = elapsedSeconds;
+        std::cout << grid->GetNumberRows() << std::endl;
+        grid->SetCellValue(rowIndex, elapsedSeconds - 1, wxString::Format("%.2f", randomF));
     }
-
-    // Update timer label
+    
+     // Update timer label
     timerLabel->SetLabel(wxString::Format("%d s", elapsedSeconds));
+
+    if (elapsedSeconds >= 10)
+    {
+    	rowIndex++;
+        timer->Stop();
+        return;
+    }
 
     // Calculate new bullet position
     float progress = elapsedMilliseconds / 10000.0f; // 10000 milliseconds for 10 seconds
