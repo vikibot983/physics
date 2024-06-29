@@ -66,7 +66,7 @@ bool MyApp::OnInit()
 }
 
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
-    : wxFrame(nullptr, wxID_ANY, title, pos, size), elapsedMilliseconds(0), bulletX(10)
+    : wxFrame(nullptr, wxID_ANY, title, pos, size), elapsedMilliseconds(0), bulletX(10)  // Initial position set to 10
 {
     wxMenu* menuFile = new wxMenu;
     menuFile->Append(ID_Run, "&Run...\tCtrl-R", "Run the example function and measure time");
@@ -95,6 +95,12 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 
     // Create the panel for custom drawing
     panel = new wxPanel(this, wxID_ANY);
+    
+    // Set sizers to layout the panel properly
+    wxBoxSizer* panelSizer = new wxBoxSizer(wxVERTICAL);
+
+    // Add space for the bullet animation at the top
+    panelSizer->AddSpacer(50);  // Increase the space for the bullet animation
 
     // Create the grid for displaying float values
     grid = new wxGrid(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
@@ -113,9 +119,6 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     speedLabel = new wxStaticText(panel, wxID_ANY, "Speed:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     speedText = new wxTextCtrl(panel, wxID_ANY, "10 m/s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
 
-    // Set sizers to layout the panel properly
-    wxBoxSizer* panelSizer = new wxBoxSizer(wxVERTICAL);
-
     // Create a horizontal box sizer for time labels
     wxBoxSizer* timeSizer = new wxBoxSizer(wxHORIZONTAL);
     timeSizer->Add(timeLabel, 0, wxALL, 10);
@@ -125,10 +128,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     panelSizer->Add(speedLabel, 0, wxALL, 10); // Add speed label
     panelSizer->Add(speedText, 0, wxALL, 10);
 
-    // Add space for the bullet below the other panels
-    panelSizer->AddSpacer(30); 
-
-    // Add the grid at the bottom and make it expand
+    // Add the grid below the other panels and make it expand
     panelSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
 
     panel->SetSizer(panelSizer);
@@ -141,6 +141,11 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     // Initialize timer
     timer = new wxTimer(this, ID_Timer);
     Bind(wxEVT_TIMER, &MyFrame::OnTimer, this, ID_Timer);
+    
+    // Initial drawing of the line
+    bulletStartX = 10;
+    bulletEndX = GetSize().GetWidth() - 30;
+    panel->Refresh();
     rowIndex = 0;
 }
 
@@ -169,8 +174,8 @@ void MyFrame::OnRun(wxCommandEvent& event)
     timerLabel->SetLabel("0 s"); // Reset timer label
 
     wxRect gridRect = grid->GetRect();
-    bulletStartX = gridRect.GetLeft() + 10;
-    bulletEndX = gridRect.GetRight() - 10;
+    bulletStartX = gridRect.GetLeft();
+    bulletEndX = gridRect.GetRight();
 
     timer->Start(33);  // Start the timer to update every 33 milliseconds (approx. 30 fps)
     panel->Refresh();    // Refresh the panel to trigger a paint event
@@ -220,6 +225,10 @@ void MyFrame::OnOpen(wxCommandEvent& event)
     }
 
     file.close();
+    
+    // Adjust the panel and window size to fit the new row
+    panel->Layout();
+    this->Fit();
 }
 
 void MyFrame::OnSave(wxCommandEvent& event)
@@ -257,27 +266,23 @@ void MyFrame::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(panel);
 
-    // Get the size and position of the grid
-    wxRect gridRect = grid->GetRect();
-    int gridBottom = gridRect.GetBottom();
-
     // Draw a bullet at the current position
     int bulletRadius = 5;
-    int bulletY = 20; // Adjust this value as needed
+    int bulletY = 20; // Position the bullet at the top
 
     dc.SetBrush(*wxBLACK_BRUSH);
     dc.SetPen(*wxBLACK_PEN);
     dc.DrawCircle(bulletX, bulletY, bulletRadius);
     
     // Draw x-coordinate line under the bullet
-    //int lineY = gridBottom + 20 + bulletRadius + 1;
-    int lineY = 20 + bulletRadius + 1;
+    int lineY = bulletY + bulletRadius + 1;
     dc.DrawLine(bulletStartX, lineY, bulletEndX, lineY);
     dc.DrawLine(bulletStartX, lineY - 2, bulletStartX, lineY + 2);
     dc.DrawLine(bulletEndX, lineY - 2, bulletEndX, lineY + 2);
     dc.DrawText("0 m", bulletStartX, lineY + 5);
     dc.DrawText("100 m", bulletEndX - 20, lineY + 5);
 }
+
 
 void MyFrame::OnTimer(wxTimerEvent& event)
 {
