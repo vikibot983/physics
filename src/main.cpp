@@ -125,8 +125,10 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     timeSizer->Add(timerLabel, 0, wxALL, 10);
     panelSizer->Add(timeSizer, 0, wxALIGN_LEFT);
 
-    panelSizer->Add(speedLabel, 0, wxALL, 10); // Add speed label
-    panelSizer->Add(speedText, 0, wxALL, 10);
+    wxBoxSizer* speedSizer = new wxBoxSizer(wxHORIZONTAL);
+    speedSizer->Add(speedLabel, 0, wxALL, 10);
+    speedSizer->Add(speedText, 0, wxALL, 10);
+    panelSizer->Add(speedSizer, 0, wxALL, wxALIGN_LEFT);
 
     // Add the grid below the other panels and make it expand
     panelSizer->Add(grid, 1, wxALL | wxEXPAND, 10);
@@ -225,6 +227,8 @@ void MyFrame::OnOpen(wxCommandEvent& event)
     }
 
     file.close();
+    
+    rowIndex = row;
     
     // Adjust the panel and window size to fit the new row
     panel->Layout();
