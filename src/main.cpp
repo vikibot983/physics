@@ -28,6 +28,7 @@ public:
     void OnSave(wxCommandEvent& event);
     void OnOpen(wxCommandEvent& event);
     void OnTimer(wxTimerEvent& event);
+    void OnEdit(wxCommandEvent& event);
 
 private:
     wxGrid* grid;
@@ -35,7 +36,9 @@ private:
     wxStaticText* timeLabel;
     wxStaticText* timerLabel;
     wxStaticText* speedLabel;
-    wxTextCtrl* speedText;
+    wxStaticText* durationLabel;
+    wxStaticText* durationValueLabel;
+    wxStaticText* speedText;
     wxTimer* timer;
 
     int bulletX;
@@ -52,7 +55,8 @@ enum
     ID_Run = 1,
     ID_Timer = 2,
     ID_Open = 3,
-    ID_Save = 4
+    ID_Save = 4,
+    ID_Edit = 5
 };
 
 wxIMPLEMENT_APP(MyApp);
@@ -74,12 +78,16 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     menuFile->Append(ID_Open, "&Open...\tCtrl-O", "Open a file and load the grid data");
     menuFile->AppendSeparator();
     menuFile->Append(wxID_EXIT);
+    
+    wxMenu* menuEdit = new wxMenu;
+    menuEdit->Append(ID_Edit, "&Edit...\tCtrl-O", "Edit experiment variables");
 
     wxMenu* menuHelp = new wxMenu;
     menuHelp->Append(wxID_ABOUT);
 
     wxMenuBar* menuBar = new wxMenuBar;
     menuBar->Append(menuFile, "&File");
+    menuBar->Append(menuEdit, "&Edit");
     menuBar->Append(menuHelp, "&Help");
 
     SetMenuBar(menuBar);
@@ -92,6 +100,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     Bind(wxEVT_MENU, &MyFrame::OnAbout, this, wxID_ABOUT);
     Bind(wxEVT_MENU, &MyFrame::OnSave, this, ID_Save);
     Bind(wxEVT_MENU, &MyFrame::OnOpen, this, ID_Open);
+    Bind(wxEVT_MENU, &MyFrame::OnEdit, this, ID_Edit);
 
     // Create the panel for custom drawing
     panel = new wxPanel(this, wxID_ANY);
@@ -116,13 +125,17 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     // Create labels and text control
     timeLabel = new wxStaticText(panel, wxID_ANY, "Time:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     timerLabel = new wxStaticText(panel, wxID_ANY, "0 s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    durationLabel = new wxStaticText(panel, wxID_ANY, "duration", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    durationValueLabel = new wxStaticText(panel, wxID_ANY, "10 s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     speedLabel = new wxStaticText(panel, wxID_ANY, "Speed:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    speedText = new wxTextCtrl(panel, wxID_ANY, "10 m/s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    speedText = new wxStaticText(panel, wxID_ANY, "10 m/s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
 
     // Create a horizontal box sizer for time labels
     wxBoxSizer* timeSizer = new wxBoxSizer(wxHORIZONTAL);
     timeSizer->Add(timeLabel, 0, wxALL, 10);
     timeSizer->Add(timerLabel, 0, wxALL, 10);
+    timeSizer->Add(durationLabel, 0, wxALL, 10);
+    timeSizer->Add(durationValueLabel, 0, wxALL, 10);
     panelSizer->Add(timeSizer, 0, wxALIGN_LEFT);
 
     wxBoxSizer* speedSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -319,6 +332,11 @@ void MyFrame::OnTimer(wxTimerEvent& event)
 
     // Refresh the panel to trigger a paint event
     panel->Refresh();
+}
+
+void MyFrame::OnEdit(wxCommandEvent& event)
+{
+    std::cout << "OnEdit()" << std::endl;
 }
 
        
