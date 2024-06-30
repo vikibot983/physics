@@ -46,11 +46,13 @@ private:
     int bulletStartX;
     int bulletEndX;
     int elapsedMilliseconds;
-    int durationSeconds;
     int rowIndex;
+    int animationDuration;
+    float speed;
 
     void OnPaint(wxPaintEvent& event);
 };
+
 
 enum
 {
@@ -72,7 +74,7 @@ bool MyApp::OnInit()
 }
 
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
-    : wxFrame(nullptr, wxID_ANY, title, pos, size), elapsedMilliseconds(0), bulletX(10), durationSeconds(10)
+    : wxFrame(nullptr, wxID_ANY, title, pos, size), elapsedMilliseconds(0), bulletX(10), animationDuration(10), speed(10.0f)  // Default duration and speed
 {
     wxMenu* menuFile = new wxMenu;
     menuFile->Append(ID_Run, "&Run...\tCtrl-R", "Run the example function and measure time");
@@ -127,7 +129,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     // Create labels and text control
     timeLabel = new wxStaticText(panel, wxID_ANY, "Time:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     timerLabel = new wxStaticText(panel, wxID_ANY, "0 s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    durationLabel = new wxStaticText(panel, wxID_ANY, "Duration:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    durationLabel = new wxStaticText(panel, wxID_ANY, "duration", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     durationValueLabel = new wxStaticText(panel, wxID_ANY, "10 s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     speedLabel = new wxStaticText(panel, wxID_ANY, "Speed:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     speedValue = new wxStaticText(panel, wxID_ANY, "10 m/s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
@@ -193,6 +195,9 @@ void MyFrame::OnRun(wxCommandEvent& event)
     wxRect gridRect = grid->GetRect();
     bulletStartX = gridRect.GetLeft();
     bulletEndX = gridRect.GetRight();
+    
+    animationDuration = GetIntFromInput(durationValueLabel->GetLabel());
+    speed = GetIntFromInput(speedValue->GetLabel());
 
     timer->Start(33);  // Start the timer to update every 33 milliseconds (approx. 30 fps)
     panel->Refresh();    // Refresh the panel to trigger a paint event
@@ -307,34 +312,35 @@ void MyFrame::OnTimer(wxTimerEvent& event)
 {
     elapsedMilliseconds += 33;
     int elapsedSeconds = (elapsedMilliseconds / 1000);
-
+	
     // Update grid values
-    if (elapsedSeconds > 0 && grid->GetCellValue(rowIndex, elapsedSeconds - 1).IsEmpty())
+    if (elapsedSeconds > 0 && elapsedSeconds % (animationDuration / 10) == 0 && grid->GetCellValue(rowIndex, elapsedSeconds / (animationDuration / 10) - 1).IsEmpty())
     {
-        float min = 10 * elapsedSeconds * 0.97f;
-        float max = 10 * elapsedSeconds * 1.03f;
+        float min = speed * elapsedSeconds * 0.97f;
+        float max = speed * elapsedSeconds * 1.03f;
         float randomF = min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
         std::cout << grid->GetNumberRows() << std::endl;
-        grid->SetCellValue(rowIndex, elapsedSeconds - 1, wxString::Format("%.2f", randomF));
+        grid->SetCellValue(rowIndex, elapsedSeconds / (animationDuration / 10) - 1, wxString::Format("%.2f", randomF));
     }
     
-     // Update timer label
+    // Update timer label
     timerLabel->SetLabel(wxString::Format("%d s", elapsedSeconds));
 
-    if (elapsedSeconds >= durationSeconds)
+    if (elapsedSeconds >= animationDuration)
     {
-    	rowIndex++;
+        rowIndex++;
         timer->Stop();
         return;
     }
 
     // Calculate new bullet position
-    float progress = elapsedMilliseconds / 10000.0f; // 10000 milliseconds for 10 seconds
+    float progress = static_cast<float>(elapsedMilliseconds) / (animationDuration * 1000.0f); // duration in milliseconds
     bulletX = bulletStartX + progress * (bulletEndX - bulletStartX);
 
     // Refresh the panel to trigger a paint event
     panel->Refresh();
 }
+
 
 int MyFrame::GetIntFromInput(const wxString& input)
 {
@@ -383,8 +389,6 @@ void MyFrame::OnEdit(wxCommandEvent& event)
 
         durationValueLabel->SetLabel(wxString::Format("%d s", duration));
         speedValue->SetLabel(wxString::Format("%d m/s", speed));
-        
-        durationSeconds = duration;
     }
 }
 
