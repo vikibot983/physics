@@ -29,6 +29,7 @@ public:
     void OnOpen(wxCommandEvent& event);
     void OnTimer(wxTimerEvent& event);
     void OnEdit(wxCommandEvent& event);
+    int GetIntFromInput(const wxString& input);
 
 private:
     wxGrid* grid;
@@ -38,13 +39,14 @@ private:
     wxStaticText* speedLabel;
     wxStaticText* durationLabel;
     wxStaticText* durationValueLabel;
-    wxStaticText* speedText;
+    wxStaticText* speedValue;
     wxTimer* timer;
 
     int bulletX;
     int bulletStartX;
     int bulletEndX;
     int elapsedMilliseconds;
+    int durationSeconds;
     int rowIndex;
 
     void OnPaint(wxPaintEvent& event);
@@ -70,7 +72,7 @@ bool MyApp::OnInit()
 }
 
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
-    : wxFrame(nullptr, wxID_ANY, title, pos, size), elapsedMilliseconds(0), bulletX(10)  // Initial position set to 10
+    : wxFrame(nullptr, wxID_ANY, title, pos, size), elapsedMilliseconds(0), bulletX(10), durationSeconds(10)
 {
     wxMenu* menuFile = new wxMenu;
     menuFile->Append(ID_Run, "&Run...\tCtrl-R", "Run the example function and measure time");
@@ -80,7 +82,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     menuFile->Append(wxID_EXIT);
     
     wxMenu* menuEdit = new wxMenu;
-    menuEdit->Append(ID_Edit, "&Edit...\tCtrl-O", "Edit experiment variables");
+    menuEdit->Append(ID_Edit, "&Edit...\tCtrl-E", "Edit experiment variables");
 
     wxMenu* menuHelp = new wxMenu;
     menuHelp->Append(wxID_ABOUT);
@@ -125,10 +127,10 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     // Create labels and text control
     timeLabel = new wxStaticText(panel, wxID_ANY, "Time:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     timerLabel = new wxStaticText(panel, wxID_ANY, "0 s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    durationLabel = new wxStaticText(panel, wxID_ANY, "duration", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    durationLabel = new wxStaticText(panel, wxID_ANY, "Duration:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     durationValueLabel = new wxStaticText(panel, wxID_ANY, "10 s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     speedLabel = new wxStaticText(panel, wxID_ANY, "Speed:", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    speedText = new wxStaticText(panel, wxID_ANY, "10 m/s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
+    speedValue = new wxStaticText(panel, wxID_ANY, "10 m/s", wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
 
     // Create a horizontal box sizer for time labels
     wxBoxSizer* timeSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -140,7 +142,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 
     wxBoxSizer* speedSizer = new wxBoxSizer(wxHORIZONTAL);
     speedSizer->Add(speedLabel, 0, wxALL, 10);
-    speedSizer->Add(speedText, 0, wxALL, 10);
+    speedSizer->Add(speedValue, 0, wxALL, 10);
     panelSizer->Add(speedSizer, 0, wxALL, wxALIGN_LEFT);
 
     // Add the grid below the other panels and make it expand
@@ -319,7 +321,7 @@ void MyFrame::OnTimer(wxTimerEvent& event)
      // Update timer label
     timerLabel->SetLabel(wxString::Format("%d s", elapsedSeconds));
 
-    if (elapsedSeconds >= 10)
+    if (elapsedSeconds >= durationSeconds)
     {
     	rowIndex++;
         timer->Stop();
@@ -334,10 +336,55 @@ void MyFrame::OnTimer(wxTimerEvent& event)
     panel->Refresh();
 }
 
-void MyFrame::OnEdit(wxCommandEvent& event)
+int MyFrame::GetIntFromInput(const wxString& input)
 {
-    std::cout << "OnEdit()" << std::endl;
+    wxString digits;
+    for (auto c : input)
+    {
+        if (wxIsdigit(c))
+        {
+            digits += c;
+        }
+    }
+    long result;
+    digits.ToLong(&result);
+    return static_cast<int>(result);
 }
 
-       
+void MyFrame::OnEdit(wxCommandEvent& event)
+{
+    wxDialog dialog(this, wxID_ANY, "Edit Experiment Variables", wxDefaultPosition, wxDefaultSize);
+    wxBoxSizer* dialogSizer = new wxBoxSizer(wxVERTICAL);
+
+    wxStaticText* durationLabel = new wxStaticText(&dialog, wxID_ANY, "Duration (s):");
+    wxTextCtrl* durationInput = new wxTextCtrl(&dialog, wxID_ANY, durationValueLabel->GetLabel(), wxDefaultPosition, wxSize(100, -1));
+    dialogSizer->Add(durationLabel, 0, wxALL, 5);
+    dialogSizer->Add(durationInput, 0, wxALL, 5);
+
+    wxStaticText* speedLabel = new wxStaticText(&dialog, wxID_ANY, "Speed (m/s):");
+    wxTextCtrl* speedInput = new wxTextCtrl(&dialog, wxID_ANY, speedValue->GetLabel(), wxDefaultPosition, wxSize(100, -1));
+    dialogSizer->Add(speedLabel, 0, wxALL, 5);
+    dialogSizer->Add(speedInput, 0, wxALL, 5);
+
+    wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxButton* okButton = new wxButton(&dialog, wxID_OK, "OK");
+    wxButton* cancelButton = new wxButton(&dialog, wxID_CANCEL, "Cancel");
+    buttonSizer->Add(okButton, 0, wxALL, 5);
+    buttonSizer->Add(cancelButton, 0, wxALL, 5);
+
+    dialogSizer->Add(buttonSizer, 0, wxALIGN_CENTER);
+
+    dialog.SetSizerAndFit(dialogSizer);
+
+    if (dialog.ShowModal() == wxID_OK)
+    {
+        int duration = GetIntFromInput(durationInput->GetValue());
+        int speed = GetIntFromInput(speedInput->GetValue());
+
+        durationValueLabel->SetLabel(wxString::Format("%d s", duration));
+        speedValue->SetLabel(wxString::Format("%d m/s", speed));
+        
+        durationSeconds = duration;
+    }
+}
 
